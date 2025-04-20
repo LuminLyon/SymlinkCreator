@@ -199,7 +199,7 @@ def handle_command_line():
             # 用户选择了一个文件/文件夹，要求创建软链接
             target_dir = QFileDialog.getExistingDirectory(None, "选择软链接保存位置")
             if not target_dir:
-                return
+                sys.exit(0)  # 用户取消选择，直接退出程序
             
             target_path = os.path.join(target_dir, os.path.basename(path))
             
@@ -217,12 +217,14 @@ def handle_command_line():
                 QMessageBox.critical(None, "错误", f"创建软链接失败: {e.stderr.decode('gbk') if e.stderr else str(e)}")
             except Exception as e:
                 QMessageBox.critical(None, "错误", f"创建软链接失败: {e}")
+            
+            sys.exit(0)  # 操作完成后退出
         
         elif action == 'target':
             # 用户在目录背景点击右键，要求创建软链接到此处
             source_path = QFileDialog.getOpenFileName(None, "选择要创建软链接的源文件/文件夹")[0]
             if not source_path:
-                return
+                sys.exit(0)  # 用户取消选择，直接退出程序
             
             target_path = os.path.join(path, os.path.basename(source_path))
             
@@ -240,7 +242,10 @@ def handle_command_line():
                 QMessageBox.critical(None, "错误", f"创建软链接失败: {e.stderr.decode('gbk') if e.stderr else str(e)}")
             except Exception as e:
                 QMessageBox.critical(None, "错误", f"创建软链接失败: {e}")
+            
+            sys.exit(0)  # 操作完成后退出
         
+        # 如果执行到这里，说明action参数不正确，也直接退出
         sys.exit(0)
 
 
