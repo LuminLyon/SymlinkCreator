@@ -6,7 +6,7 @@ import subprocess
 from PyQt5.QtWidgets import (QApplication, QMainWindow, QPushButton, QVBoxLayout, 
                             QLabel, QWidget, QMessageBox, QFileDialog)
 from PyQt5.QtGui import QIcon, QFont
-from PyQt5.QtCore import Qt, QSize
+from PyQt5.QtCore import Qt
 
 class SymlinkCreator(QMainWindow):
     def __init__(self):
@@ -25,7 +25,7 @@ class SymlinkCreator(QMainWindow):
         
         # 标题
         title = QLabel("Windows 软链接右键菜单工具")
-        title.setAlignment(Qt.AlignCenter)
+        title.setAlignment(Qt.AlignmentFlag.AlignCenter)
         title.setFont(QFont("Microsoft YaHei", 14, QFont.Bold))
         layout.addWidget(title)
         
@@ -89,7 +89,7 @@ class SymlinkCreator(QMainWindow):
             winreg.SetValueEx(key, 'HasLUAShield', 0, winreg.REG_SZ, '')
             command_key = winreg.CreateKey(key, 'command')
             # 使用PowerShell的Start-Process代替，以请求管理员权限
-            ps_cmd = f'powershell.exe -Command "Start-Process -FilePath \'{exe_path}\' -ArgumentList \'file\',\'%1\' -Verb RunAs"'
+            ps_cmd = f'powershell.exe -Command "Start-Process -FilePath \'{exe_path}\' -ArgumentList \'file\', \'%1\' -Verb RunAs"'
             winreg.SetValueEx(command_key, '', 0, winreg.REG_SZ, ps_cmd)
             winreg.CloseKey(command_key)
             winreg.CloseKey(key)
@@ -101,7 +101,7 @@ class SymlinkCreator(QMainWindow):
             winreg.SetValueEx(key, 'HasLUAShield', 0, winreg.REG_SZ, '')
             command_key = winreg.CreateKey(key, 'command')
             # 使用PowerShell的Start-Process代替，以请求管理员权限
-            ps_cmd = f'powershell.exe -Command "Start-Process -FilePath \'{exe_path}\' -ArgumentList \'dir\',\'%1\' -Verb RunAs"'
+            ps_cmd = f'powershell.exe -Command "Start-Process -FilePath \'{exe_path}\' -ArgumentList \'dir\', \'%1\' -Verb RunAs"'
             winreg.SetValueEx(command_key, '', 0, winreg.REG_SZ, ps_cmd)
             winreg.CloseKey(command_key)
             winreg.CloseKey(key)
@@ -113,7 +113,7 @@ class SymlinkCreator(QMainWindow):
             winreg.SetValueEx(key, 'HasLUAShield', 0, winreg.REG_SZ, '')
             command_key = winreg.CreateKey(key, 'command')
             # 使用PowerShell的Start-Process代替，以请求管理员权限
-            ps_cmd = f'powershell.exe -Command "Start-Process -FilePath \'{exe_path}\' -ArgumentList \'target\',\'%V\' -Verb RunAs"'
+            ps_cmd = f'powershell.exe -Command "Start-Process -FilePath \'{exe_path}\' -ArgumentList \'target\', \'%V\' -Verb RunAs"'
             winreg.SetValueEx(command_key, '', 0, winreg.REG_SZ, ps_cmd)
             winreg.CloseKey(command_key)
             winreg.CloseKey(key)
@@ -191,7 +191,7 @@ def handle_command_line():
     """处理命令行参数，用于右键菜单调用"""
     if len(sys.argv) >= 3:
         action = sys.argv[1]
-        path = sys.argv[2]
+        path = ' '.join(sys.argv[2:])
         
         app = QApplication(sys.argv)
         
@@ -258,4 +258,4 @@ if __name__ == "__main__":
     app = QApplication(sys.argv)
     window = SymlinkCreator()
     window.show()
-    sys.exit(app.exec_()) 
+    sys.exit(app.exec_())

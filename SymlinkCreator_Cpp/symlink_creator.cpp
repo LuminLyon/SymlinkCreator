@@ -94,7 +94,7 @@ bool RegisterContextMenu() {
         RegCloseKey(hKey);
         
         if (RegCreateKeyExW(HKEY_CLASSES_ROOT, L"*\\shell\\创建软链接\\command", 0, NULL, 0, KEY_WRITE, NULL, &hKey, &dwDisp) == ERROR_SUCCESS) {
-            std::wstring command = L"powershell.exe -Command \"Start-Process -FilePath \\\"" + std::wstring(szPath) + L"\\\" -ArgumentList \\\"file\\\",\\\"%1\\\" -Verb RunAs\"";
+            std::wstring command = L"powershell.exe -Command \"Start-Process -FilePath '" + std::wstring(szPath) + L"' -ArgumentList 'file', '%1' -Verb RunAs\"";
             RegSetValueExW(hKey, L"", 0, REG_SZ, (BYTE*)command.c_str(), (DWORD)((command.length() + 1) * sizeof(wchar_t)));
             RegCloseKey(hKey);
         }
@@ -106,7 +106,7 @@ bool RegisterContextMenu() {
         RegCloseKey(hKey);
         
         if (RegCreateKeyExW(HKEY_CLASSES_ROOT, L"Directory\\shell\\创建软链接\\command", 0, NULL, 0, KEY_WRITE, NULL, &hKey, &dwDisp) == ERROR_SUCCESS) {
-            std::wstring command = L"powershell.exe -Command \"Start-Process -FilePath \\\"" + std::wstring(szPath) + L"\\\" -ArgumentList \\\"dir\\\",\\\"%1\\\" -Verb RunAs\"";
+            std::wstring command = L"powershell.exe -Command \"Start-Process -FilePath '" + std::wstring(szPath) + L"' -ArgumentList 'dir', '%1' -Verb RunAs\"";
             RegSetValueExW(hKey, L"", 0, REG_SZ, (BYTE*)command.c_str(), (DWORD)((command.length() + 1) * sizeof(wchar_t)));
             RegCloseKey(hKey);
         }
@@ -118,7 +118,7 @@ bool RegisterContextMenu() {
         RegCloseKey(hKey);
         
         if (RegCreateKeyExW(HKEY_CLASSES_ROOT, L"Directory\\Background\\shell\\创建软链接到此处\\command", 0, NULL, 0, KEY_WRITE, NULL, &hKey, &dwDisp) == ERROR_SUCCESS) {
-            std::wstring command = L"powershell.exe -Command \"Start-Process -FilePath \\\"" + std::wstring(szPath) + L"\\\" -ArgumentList \\\"target\\\",\\\"%V\\\" -Verb RunAs\"";
+            std::wstring command = L"powershell.exe -Command \"Start-Process -FilePath '" + std::wstring(szPath) + L"' -ArgumentList 'target', '%V' -Verb RunAs\"";
             RegSetValueExW(hKey, L"", 0, REG_SZ, (BYTE*)command.c_str(), (DWORD)((command.length() + 1) * sizeof(wchar_t)));
             RegCloseKey(hKey);
         }
@@ -148,19 +148,22 @@ bool UnregisterContextMenu() {
 bool CreateSymlink(const std::wstring& source, const std::wstring& target) {
     bool isDirectory = std::filesystem::is_directory(source);
     
-    DWORD dwFlags = isDirectory ? SYMBOLIC_LINK_FLAG_DIRECTORY : 0;
-    
-    // 在Windows 10创造者更新以后需要添加此标志以便于在开发者模式下不需要管理员权限
-    dwFlags |= SYMBOLIC_LINK_FLAG_ALLOW_UNPRIVILEGED_CREATE;
-    
-    if (CreateSymbolicLinkW(target.c_str(), source.c_str(), dwFlags)) {
-        return true;
+    std::wstring command;
+    if (isDirectory) {
+        command = L"cmd.exe /c mklink /D \"" + target + L"\" \"" + source + L"\"";
+    } else {
+        command = L"cmd.exe /c mklink \"" + target + L"\" \"" + source + L"\"";
     }
     
-    // 如果带SYMBOLIC_LINK_FLAG_ALLOW_UNPRIVILEGED_CREATE失败，尝试不带此标志
-    if (GetLastError() == ERROR_INVALID_PARAMETER) {
-        dwFlags = isDirectory ? SYMBOLIC_LINK_FLAG_DIRECTORY : 0;
-        return CreateSymbolicLinkW(target.c_str(), source.c_str(), dwFlags) != 0;
+    STARTUPINFOW si = {0};
+    PROCESS_INFORMATION pi = {0};
+    si.cb = sizeof(si);
+    
+    if (CreateProcessW(NULL, &command[0], NULL, NULL, FALSE, CREATE_NO_WINDOW, NULL, NULL, &si, &pi)) {
+        WaitForSingleObject(pi.hProcess, INFINITE);
+        CloseHandle(pi.hProcess);
+        CloseHandle(pi.hThread);
+        return true;
     }
     
     return false;
@@ -222,7 +225,13 @@ bool HandleCommandLine(int argc, wchar_t* argv[]) {
     }
     
     std::wstring action = argv[1];
-    std::wstring path = argv[2];
+    std::wstring path;
+    for (int i = 2; i < argc; ++i) {
+        path += argv[i];
+        if (i < argc - 1) {
+            path += L" ";
+        }
+    }
     
     if (action == L"file" || action == L"dir") {
         // 用户选择了一个文件/文件夹，要求创建软链接
@@ -415,4 +424,4 @@ int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPWSTR lpCmdLi
     }
     
     return (int)msg.wParam;
-} 
+}
