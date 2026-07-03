@@ -4,6 +4,12 @@
 #ifndef _UNICODE
 #define _UNICODE
 #endif
+#ifndef _WIN32_WINNT
+#define _WIN32_WINNT 0x0600
+#endif
+#ifndef WINVER
+#define WINVER 0x0600
+#endif
 
 // 这些定义必须在包含Windows头文件之前
 #include <windows.h>
@@ -30,6 +36,7 @@ bool IsRunAsAdmin();
 bool RegisterContextMenu();
 bool UnregisterContextMenu();
 bool CreateSymlink(const std::wstring& source, const std::wstring& target);
+void RunAsAdmin(const std::wstring& action, const std::wstring& path);
 bool TestSymlink(HWND hwnd);
 LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam);
 
@@ -87,38 +94,39 @@ bool RegisterContextMenu() {
     DWORD dwDisp;
     wchar_t szPath[MAX_PATH];
     GetModuleFileNameW(NULL, szPath, MAX_PATH);
+    std::wstring progPath = L"\"" + std::wstring(szPath) + L"\"";
     
     // 在文件上的右键菜单
-    if (RegCreateKeyExW(HKEY_CLASSES_ROOT, L"*\\shell\\创建软链接", 0, NULL, 0, KEY_WRITE, NULL, &hKey, &dwDisp) == ERROR_SUCCESS) {
+    if (RegCreateKeyExW(HKEY_CURRENT_USER, L"Software\\Classes\\*\\shell\\创建软链接", 0, NULL, 0, KEY_WRITE, NULL, &hKey, &dwDisp) == ERROR_SUCCESS) {
         RegSetValueExW(hKey, L"HasLUAShield", 0, REG_SZ, (BYTE*)L"", 2);
         RegCloseKey(hKey);
         
-        if (RegCreateKeyExW(HKEY_CLASSES_ROOT, L"*\\shell\\创建软链接\\command", 0, NULL, 0, KEY_WRITE, NULL, &hKey, &dwDisp) == ERROR_SUCCESS) {
-            std::wstring command = L"powershell.exe -Command \"Start-Process -FilePath '" + std::wstring(szPath) + L"' -ArgumentList 'file', '%1' -Verb RunAs\"";
+        if (RegCreateKeyExW(HKEY_CURRENT_USER, L"Software\\Classes\\*\\shell\\创建软链接\\command", 0, NULL, 0, KEY_WRITE, NULL, &hKey, &dwDisp) == ERROR_SUCCESS) {
+            std::wstring command = progPath + L" file \"%1\"";
             RegSetValueExW(hKey, L"", 0, REG_SZ, (BYTE*)command.c_str(), (DWORD)((command.length() + 1) * sizeof(wchar_t)));
             RegCloseKey(hKey);
         }
     }
     
     // 在目录上的右键菜单
-    if (RegCreateKeyExW(HKEY_CLASSES_ROOT, L"Directory\\shell\\创建软链接", 0, NULL, 0, KEY_WRITE, NULL, &hKey, &dwDisp) == ERROR_SUCCESS) {
+    if (RegCreateKeyExW(HKEY_CURRENT_USER, L"Software\\Classes\\Directory\\shell\\创建软链接", 0, NULL, 0, KEY_WRITE, NULL, &hKey, &dwDisp) == ERROR_SUCCESS) {
         RegSetValueExW(hKey, L"HasLUAShield", 0, REG_SZ, (BYTE*)L"", 2);
         RegCloseKey(hKey);
         
-        if (RegCreateKeyExW(HKEY_CLASSES_ROOT, L"Directory\\shell\\创建软链接\\command", 0, NULL, 0, KEY_WRITE, NULL, &hKey, &dwDisp) == ERROR_SUCCESS) {
-            std::wstring command = L"powershell.exe -Command \"Start-Process -FilePath '" + std::wstring(szPath) + L"' -ArgumentList 'dir', '%1' -Verb RunAs\"";
+        if (RegCreateKeyExW(HKEY_CURRENT_USER, L"Software\\Classes\\Directory\\shell\\创建软链接\\command", 0, NULL, 0, KEY_WRITE, NULL, &hKey, &dwDisp) == ERROR_SUCCESS) {
+            std::wstring command = progPath + L" dir \"%1\"";
             RegSetValueExW(hKey, L"", 0, REG_SZ, (BYTE*)command.c_str(), (DWORD)((command.length() + 1) * sizeof(wchar_t)));
             RegCloseKey(hKey);
         }
     }
     
     // 在目录背景上的右键菜单
-    if (RegCreateKeyExW(HKEY_CLASSES_ROOT, L"Directory\\Background\\shell\\创建软链接到此处", 0, NULL, 0, KEY_WRITE, NULL, &hKey, &dwDisp) == ERROR_SUCCESS) {
+    if (RegCreateKeyExW(HKEY_CURRENT_USER, L"Software\\Classes\\Directory\\Background\\shell\\创建软链接到此处", 0, NULL, 0, KEY_WRITE, NULL, &hKey, &dwDisp) == ERROR_SUCCESS) {
         RegSetValueExW(hKey, L"HasLUAShield", 0, REG_SZ, (BYTE*)L"", 2);
         RegCloseKey(hKey);
         
-        if (RegCreateKeyExW(HKEY_CLASSES_ROOT, L"Directory\\Background\\shell\\创建软链接到此处\\command", 0, NULL, 0, KEY_WRITE, NULL, &hKey, &dwDisp) == ERROR_SUCCESS) {
-            std::wstring command = L"powershell.exe -Command \"Start-Process -FilePath '" + std::wstring(szPath) + L"' -ArgumentList 'target', '%V' -Verb RunAs\"";
+        if (RegCreateKeyExW(HKEY_CURRENT_USER, L"Software\\Classes\\Directory\\Background\\shell\\创建软链接到此处\\command", 0, NULL, 0, KEY_WRITE, NULL, &hKey, &dwDisp) == ERROR_SUCCESS) {
+            std::wstring command = progPath + L" target \"%V\"";
             RegSetValueExW(hKey, L"", 0, REG_SZ, (BYTE*)command.c_str(), (DWORD)((command.length() + 1) * sizeof(wchar_t)));
             RegCloseKey(hKey);
         }
@@ -130,43 +138,27 @@ bool RegisterContextMenu() {
 // 卸载右键菜单
 bool UnregisterContextMenu() {
     // 删除文件右键菜单
-    RegDeleteKeyW(HKEY_CLASSES_ROOT, L"*\\shell\\创建软链接\\command");
-    RegDeleteKeyW(HKEY_CLASSES_ROOT, L"*\\shell\\创建软链接");
+    RegDeleteKeyW(HKEY_CURRENT_USER, L"Software\\Classes\\*\\shell\\创建软链接\\command");
+    RegDeleteKeyW(HKEY_CURRENT_USER, L"Software\\Classes\\*\\shell\\创建软链接");
     
     // 删除目录右键菜单
-    RegDeleteKeyW(HKEY_CLASSES_ROOT, L"Directory\\shell\\创建软链接\\command");
-    RegDeleteKeyW(HKEY_CLASSES_ROOT, L"Directory\\shell\\创建软链接");
+    RegDeleteKeyW(HKEY_CURRENT_USER, L"Software\\Classes\\Directory\\shell\\创建软链接\\command");
+    RegDeleteKeyW(HKEY_CURRENT_USER, L"Software\\Classes\\Directory\\shell\\创建软链接");
     
     // 删除目录背景右键菜单
-    RegDeleteKeyW(HKEY_CLASSES_ROOT, L"Directory\\Background\\shell\\创建软链接到此处\\command");
-    RegDeleteKeyW(HKEY_CLASSES_ROOT, L"Directory\\Background\\shell\\创建软链接到此处");
+    RegDeleteKeyW(HKEY_CURRENT_USER, L"Software\\Classes\\Directory\\Background\\shell\\创建软链接到此处\\command");
+    RegDeleteKeyW(HKEY_CURRENT_USER, L"Software\\Classes\\Directory\\Background\\shell\\创建软链接到此处");
     
     return true;
 }
 
 // 创建软链接
 bool CreateSymlink(const std::wstring& source, const std::wstring& target) {
-    bool isDirectory = std::filesystem::is_directory(source);
-    
-    std::wstring command;
-    if (isDirectory) {
-        command = L"cmd.exe /c mklink /D \"" + target + L"\" \"" + source + L"\"";
-    } else {
-        command = L"cmd.exe /c mklink \"" + target + L"\" \"" + source + L"\"";
+    DWORD flags = 0;
+    if (std::filesystem::is_directory(source)) {
+        flags = SYMBOLIC_LINK_FLAG_DIRECTORY;
     }
-    
-    STARTUPINFOW si = {0};
-    PROCESS_INFORMATION pi = {0};
-    si.cb = sizeof(si);
-    
-    if (CreateProcessW(NULL, &command[0], NULL, NULL, FALSE, CREATE_NO_WINDOW, NULL, NULL, &si, &pi)) {
-        WaitForSingleObject(pi.hProcess, INFINITE);
-        CloseHandle(pi.hProcess);
-        CloseHandle(pi.hThread);
-        return true;
-    }
-    
-    return false;
+    return CreateSymbolicLinkW(target.c_str(), source.c_str(), flags) != FALSE;
 }
 
 // 测试软链接创建功能
@@ -218,6 +210,23 @@ bool TestSymlink(HWND hwnd) {
     }
 }
 
+// 以管理员权限重新启动
+void RunAsAdmin(const std::wstring& action, const std::wstring& path) {
+    wchar_t szPath[MAX_PATH];
+    GetModuleFileNameW(NULL, szPath, MAX_PATH);
+    
+    std::wstring args = action + L" \"" + path + L"\"";
+    
+    SHELLEXECUTEINFOW sei = {0};
+    sei.cbSize = sizeof(SHELLEXECUTEINFOW);
+    sei.lpVerb = L"runas";
+    sei.lpFile = szPath;
+    sei.lpParameters = args.c_str();
+    sei.nShow = SW_NORMAL;
+    
+    ShellExecuteExW(&sei);
+}
+
 // 处理命令行
 bool HandleCommandLine(int argc, wchar_t* argv[]) {
     if (argc < 3) {
@@ -225,12 +234,11 @@ bool HandleCommandLine(int argc, wchar_t* argv[]) {
     }
     
     std::wstring action = argv[1];
-    std::wstring path;
-    for (int i = 2; i < argc; ++i) {
-        path += argv[i];
-        if (i < argc - 1) {
-            path += L" ";
-        }
+    std::wstring path = argv[2];
+    
+    if (!IsRunAsAdmin()) {
+        RunAsAdmin(action, path);
+        return true;
     }
     
     if (action == L"file" || action == L"dir") {
