@@ -1,5 +1,8 @@
 # Link Shell Extension
 
+> 原项目: [schinagl/link-shell-extension](https://gitlab.com/schinagl/link-shell-extension)  
+> 本仓库为上游代码的镜像/存档分支
+
 A Windows shell extension that supports creating and managing **hardlinks**, **junctions**, and **symbolic links** from the context menu. Originally created by **Hermann Schinagl** in 1999.
 
 ## Projects
